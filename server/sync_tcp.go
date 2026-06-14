@@ -10,7 +10,7 @@ import (
 	"github.com/Prash766/go-redis/core"
 )
 
-func readCommands(c net.Conn) (*core.RedisCmd, error) {
+func readCommands(c io.ReadWriter) (*core.RedisCmd, error) {
 	var buf []byte = make([]byte, 512)
 	n, err := c.Read(buf)
 	fmt.Println("Client sent value ", string(buf[:n]))
@@ -28,11 +28,11 @@ func readCommands(c net.Conn) (*core.RedisCmd, error) {
 	}, nil
 }
 
-func respondError(err error, c net.Conn) {
+func respondError(err error, c io.ReadWriter) {
 	c.Write([]byte(fmt.Sprintf("-%s\r\n", err)))
 }
 
-func respond(cmd *core.RedisCmd, c net.Conn) {
+func respond(cmd *core.RedisCmd, c io.ReadWriter) {
 	err := core.EvalAndRespond(cmd, c)
 	if err != nil {
 		respondError(err, c)

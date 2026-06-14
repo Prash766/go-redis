@@ -10,7 +10,8 @@ import (
 func main() {
 	port := flag.String("port", "8080", "Port to listen on")
 	host := flag.String("host", "0.0.0.0", "Host to listen on")
+	fmt.Println("port", *port, *host)
 	flag.Parse()
-	server.StartTCPServer(*port, *host)
+	server.StartAsyncTCPServer()
 	fmt.Println("TCP server started!")
 }
