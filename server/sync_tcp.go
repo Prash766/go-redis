@@ -13,6 +13,7 @@ import (
 func readCommands(c net.Conn) (*core.RedisCmd, error) {
 	var buf []byte = make([]byte, 512)
 	n, err := c.Read(buf)
+	fmt.Println("Client sent value ", string(buf[:n]))
 	if err != nil {
 		return nil, err
 	}
@@ -20,6 +21,7 @@ func readCommands(c net.Conn) (*core.RedisCmd, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("tokens", tokens)
 	return &core.RedisCmd{
 		Cmd:  strings.ToUpper(tokens[0]),
 		Args: tokens[1:],

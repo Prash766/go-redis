@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"log"
 )
 
 func Decode(data []byte) (interface{}, error) {
@@ -30,6 +31,8 @@ func DecodeOne(data []byte) (interface{}, int, error) {
 	case '$':
 		return readBulkString(data)
 	case '*':
+		val, len, _ := readArray(data)
+		fmt.Println("READ ARRAY RETUEN D VALUE ", val, len)
 		return readArray(data)
 	default:
 		return nil, 0, fmt.Errorf("invalid data")
@@ -60,13 +63,15 @@ func readInteger(data []byte) (int64, int, error) {
 func readBulkString(data []byte) (string, int, error) {
 	pos := 1
 	length, delta := readLength(data[pos:])
-	return string(data[delta : delta+length]), delta + length + 2, nil
+	fullPos := pos + delta
+	return string(data[fullPos : fullPos+length]), fullPos + length + 2, nil
 }
 
 func readLength(data []byte) (int, int) {
 	pos, length := 0, 0
 	for pos = range data {
 		if !(data[pos] >= '0' && data[pos] <= '9') {
+			fmt.Println("length of readlenght inside the func", length)
 			return length, pos + 2
 		}
 		length = length*10 + int(data[pos]-'0')
@@ -77,11 +82,14 @@ func readLength(data []byte) (int, int) {
 
 func readArray(data []byte) (interface{}, int, error) {
 	pos := 1
-	length, delta := readLength(data)
+	length, delta := readLength(data[pos:])
+	fmt.Println("read LENGHT VALUE", length, delta)
 	pos += delta
 	value := make([]interface{}, length)
 	for i := range length {
+		log.Println("position ", pos)
 		val, len, err := DecodeOne(data[pos:])
+		fmt.Println("Decode one values", val, len)
 		if err != nil {
 			fmt.Errorf("Unable to read the data")
 		}
@@ -93,10 +101,12 @@ func readArray(data []byte) (interface{}, int, error) {
 
 func DecodeArrayString(data []byte) ([]string, error) {
 	value, err := Decode(data)
+	fmt.Println("avalue ", value)
 	if err != nil {
 		return nil, err
 	}
 	ts := value.([]interface{})
+	fmt.Println("ts ", ts)
 	result := make([]string, len(ts))
 	for i, v := range ts {
 		result[i] = v.(string)
@@ -108,7 +118,7 @@ func Encode(value interface{}, isSimple bool) []byte {
 	switch v := value.(type) {
 	case string:
 		if isSimple {
-			return []byte(fmt.Sprintf("+%s\r\n"))
+			return []byte(fmt.Sprintf("+%s\r\n", v))
 		} else {
 			return []byte(fmt.Sprintf("$%d\r\n%s\r\n", len(v), v))
 		}
