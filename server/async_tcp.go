@@ -9,6 +9,7 @@ import (
 
 func StartAsyncTCPServer() {
 	fmt.Printf("Connected to Async Server")
+	core.Init()
 	var maxConn = 20000
 	var connectedClients = 0
 	serverFd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, syscall.IPPROTO_TCP)
@@ -28,7 +29,7 @@ func StartAsyncTCPServer() {
 	// }
 
 	sockAddr := &syscall.SockaddrInet4{
-		Port: 8080,
+		Port: 8081,
 		Addr: [4]byte{0, 0, 0, 0},
 	}
 	bindErr := syscall.Bind(serverFd, sockAddr)
@@ -43,7 +44,7 @@ func StartAsyncTCPServer() {
 	connectedClients++
 	fmt.Println("server", serverFd)
 	epollEvents := make([]syscall.EpollEvent, maxConn)
-	epollFd, err := syscall.EpollCreate1(serverFd)
+	epollFd, err := syscall.EpollCreate1(syscall.EPOLL_CLOEXEC)
 	if err != nil {
 		fmt.Printf("error creating epoll: %v\n", err)
 		return
@@ -53,11 +54,13 @@ func StartAsyncTCPServer() {
 	syscall.EpollCtl(epollFd, syscall.EPOLL_CTL_ADD, serverFd, &event)
 	for {
 		count, _ := syscall.EpollWait(epollFd, epollEvents, -1)
-		for i := range count {
+		for i := 0; i < count; i++ {
 			if epollEvents[i].Fd == int32(serverFd) {
 				clientFd, _, err := syscall.Accept(serverFd)
+				syscall.SetNonblock(clientFd, true)
 				if err != nil {
 					fmt.Println("Error connecting to a new client")
+					continue
 				}
 				clientEvent := &syscall.EpollEvent{
 					Events: syscall.EPOLLIN,
@@ -70,9 +73,9 @@ func StartAsyncTCPServer() {
 				}
 				cmd, err := readCommands(command)
 				if err != nil {
-					defer syscall.Close(command.Fd)
 					connectedClients--
 					fmt.Printf("Client Disconnected , remaining clients %d", connectedClients)
+					continue
 				}
 				respond(cmd, command)
 			}
