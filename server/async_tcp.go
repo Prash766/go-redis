@@ -29,7 +29,7 @@ func StartAsyncTCPServer() {
 	// }
 
 	sockAddr := &syscall.SockaddrInet4{
-		Port: 8081,
+		Port: 8080,
 		Addr: [4]byte{0, 0, 0, 0},
 	}
 	bindErr := syscall.Bind(serverFd, sockAddr)

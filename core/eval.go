@@ -35,6 +35,13 @@ func evalGet(args []string, c io.ReadWriter) error {
 		c.Write([]byte(":-2\r\n"))
 		return nil
 	}
+	strValue, ok := obj.Value.(string)
+	if !ok {
+		return fmt.Errorf("value is not a string")
+	}
+	if obj.ExpiredAt == -1 {
+		c.Write([]byte(fmt.Sprintf("$%d\r\n%s\r\n", len(strValue), obj.Value)))
+	}
 	if expiry := time.Now().UnixMilli(); obj.ExpiredAt-expiry < 0 {
 		c.Write([]byte(":-2\r\n"))
 		return nil
