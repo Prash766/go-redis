@@ -42,6 +42,8 @@ func evalGet(args []string, c io.ReadWriter) error {
 	if obj.ExpiredAt == -1 {
 		c.Write([]byte(fmt.Sprintf("$%d\r\n%s\r\n", len(strValue), obj.Value)))
 	}
+	fmt.Println("whats the time now", time.Now().UnixMilli())
+	fmt.Println("whats the diff of the time now - expired at", obj.ExpiredAt-time.Now().UnixMilli())
 	if expiry := time.Now().UnixMilli(); obj.ExpiredAt-expiry < 0 {
 		c.Write([]byte(":-2\r\n"))
 		return nil
@@ -68,11 +70,11 @@ func evalSet(args []string, c io.ReadWriter) error {
 				if i == len(args) {
 					return errors.New("(err) ERR syntax error")
 				}
-				exprMs, err := strconv.ParseInt(args[3], 10, 64)
+				exprSec, err := strconv.ParseInt(args[3], 10, 64)
 				if err != nil {
 					return errors.New("(error) ERR value is not an integer or out of range")
 				}
-				expiryTime = time.Now().UnixMilli() + exprMs
+				expiryTime = time.Now().UnixMilli() + exprSec*1000
 			default:
 				return errors.New("err unsupported type")
 			}
@@ -85,8 +87,57 @@ func evalSet(args []string, c io.ReadWriter) error {
 }
 
 func evalTTL(args []string, c io.ReadWriter) error {
+
+	if len(args) > 1 {
+		return errors.New("(error) ERR wrong number of arguments for 'ttl' command")
+	}
+	key := args[0]
+	if Get(key) == nil {
+		c.Write([]byte(":-2\r\n"))
+		return nil
+	}
+	obj := Get(key)
+	if obj.ExpiredAt-time.Now().UnixMilli() < 0 {
+		c.Write([]byte(":-2\r\n"))
+		return nil
+	}
+	c.Write([]byte(fmt.Sprintf(":%d\r\n", int(obj.ExpiredAt-time.Now().UnixMilli())/1000)))
 	return nil
 
+}
+
+func evalExpire(args []string, c io.ReadWriter) error {
+	if len(args) > 2 || len(args) < 2 {
+		return errors.New("(error) ERR wrong number of arguments for 'expire' command")
+	}
+	key := args[0]
+	expireSec := args[1]
+	if Get(key) == nil {
+		c.Write([]byte(":0\r\n"))
+		return nil
+	}
+	obj := Get(key)
+	expireSecInt, err := strconv.ParseInt(expireSec, 10, 64)
+	if err != nil {
+		return errors.New("(error) ERR value is not an integer or out of range")
+	}
+	obj.ExpiredAt = time.Now().UnixMilli() + expireSecInt*1000
+	c.Write([]byte(":1\r\n"))
+
+	return nil
+}
+
+func evalDEL(args []string, c io.ReadWriter) error {
+	var count int64 = 0
+	for _, key := range args {
+		if Get(key) == nil {
+			continue
+		}
+		Delete(key)
+		count++
+	}
+	c.Write([]byte(fmt.Sprintf(":%d\r\n", count)))
+	return nil
 }
 
 func EvalAndRespond(cmd *RedisCmd, c io.ReadWriter) error {
@@ -99,6 +150,10 @@ func EvalAndRespond(cmd *RedisCmd, c io.ReadWriter) error {
 		return evalSet(cmd.Args, c)
 	case "TTL":
 		return evalTTL(cmd.Args, c)
+	case "EXPIRE":
+		return evalExpire(cmd.Args, c)
+	case "DEL":
+		return evalDEL(cmd.Args, c)
 	default:
 		return evalPing(cmd.Args, c)
 	}

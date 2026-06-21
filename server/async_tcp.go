@@ -32,6 +32,11 @@ func StartAsyncTCPServer() {
 		Port: 8080,
 		Addr: [4]byte{0, 0, 0, 0},
 	}
+	err = syscall.SetsockoptInt(serverFd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+	if err != nil {
+		fmt.Println("Error setting SO_REUSEADDR:", err)
+		return
+	}
 	bindErr := syscall.Bind(serverFd, sockAddr)
 	if bindErr != nil {
 		fmt.Println("Unable to bind the socket", bindErr)
@@ -59,6 +64,7 @@ func StartAsyncTCPServer() {
 				clientFd, _, err := syscall.Accept(serverFd)
 				syscall.SetNonblock(clientFd, true)
 				if err != nil {
+					syscall.Close(serverFd)
 					fmt.Println("Error connecting to a new client")
 					continue
 				}
@@ -74,6 +80,7 @@ func StartAsyncTCPServer() {
 				cmd, err := readCommands(command)
 				if err != nil {
 					connectedClients--
+					syscall.Close(command.Fd)
 					fmt.Printf("Client Disconnected , remaining clients %d", connectedClients)
 					continue
 				}

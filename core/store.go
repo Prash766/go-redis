@@ -33,3 +33,7 @@ func Put(key string, value string, expiresAt int64) {
 func Get(key string) *RedisObj {
 	return store[key]
 }
+
+func Delete(key string) {
+	delete(store, key)
+}
