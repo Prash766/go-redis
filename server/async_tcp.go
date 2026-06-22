@@ -3,11 +3,16 @@ package server
 import (
 	"fmt"
 	"syscall"
+	"time"
 
 	"github.com/Prash766/go-redis/core"
 )
 
 func StartAsyncTCPServer() {
+	var limit int = 20
+	var cronFrequency time.Duration = 1 * time.Second
+	var lastCronExecTime time.Time = time.Now()
+
 	fmt.Printf("Connected to Async Server")
 	core.Init()
 	var maxConn = 20000
@@ -58,6 +63,10 @@ func StartAsyncTCPServer() {
 	syscall.SetNonblock(serverFd, true)
 	syscall.EpollCtl(epollFd, syscall.EPOLL_CTL_ADD, serverFd, &event)
 	for {
+		if time.Now().After(lastCronExecTime.Add(cronFrequency)) {
+			core.DeleteExpiredKeys(limit)
+			lastCronExecTime = time.Now()
+		}
 		count, _ := syscall.EpollWait(epollFd, epollEvents, -1)
 		for i := 0; i < count; i++ {
 			if epollEvents[i].Fd == int32(serverFd) {
